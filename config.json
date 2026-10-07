@@ -1,6 +1,6 @@
 {
   "project": {
-    "name": "大气环境文献日报",
+    "name": "医学×AI 文献日报",
     "timezone": "Asia/Shanghai"
   },
   "window": {
@@ -20,7 +20,7 @@
   "output": {
     "dir": "reports",
     "keep_days": 365,
-    "max_entries": 10,
+    "max_entries": 15,
     "open_after_run": false,
     "write_json_snapshot": true,
     "source_status": "summary",
@@ -28,85 +28,105 @@
   },
   "keywords": [
     {
-      "label": "空气污染",
+      "label": "AI与大模型",
       "weight": 3,
       "terms": [
-        "air pollution",
-        "air pollutant",
-        "air quality",
-        "particulate matter",
-        "pm2.5",
-        "pm10",
-        "ultrafine particle",
-        "aerosol",
-        "ozone",
-        "no2",
-        "so2",
-        "haze",
-        "smog",
-        "emission inventory",
-        "anthropogenic emission",
-        "exposure assessment"
+        "artificial intelligence",
+        "machine learning",
+        "deep learning",
+        "large language model",
+        "llm",
+        "gpt",
+        "chatgpt",
+        "gemini",
+        "claude",
+        "foundation model",
+        "generative ai",
+        "generative artificial intelligence",
+        "transformer",
+        "neural network",
+        "multimodal",
+        "vision-language",
+        "chatbot",
+        "clinical agent",
+        "retrieval-augmented",
+        "prompt engineering",
+        "fine-tuning",
+        "reinforcement learning",
+        "self-supervised",
+        "transfer learning",
+        "convolutional",
+        "natural language processing"
       ]
     },
     {
-      "label": "遥感",
+      "label": "医学AI应用",
       "weight": 3,
       "terms": [
-        "remote sensing",
-        "satellite",
-        "satellite observation",
-        "modis",
-        "viirs",
-        "tropomi",
-        "omi",
-        "landsat",
-        "sentinel-5p",
-        "hyperspectral",
-        "lidar",
-        "retrieval algorithm",
-        "geostationary",
-        "aerosol optical depth",
-        "aod"
+        "clinical prediction model",
+        "prediction model",
+        "risk model",
+        "prognostic model",
+        "computer-aided",
+        "computer-assisted",
+        "medical imaging",
+        "digital pathology",
+        "radiomics",
+        "pathomics",
+        "clinical decision support",
+        "electronic health record",
+        "electrocardiogram",
+        "ecg",
+        "digital twin",
+        "federated learning",
+        "wearable",
+        "ambient intelligence",
+        "clinical workflow",
+        "diagnostic performance",
+        "triage"
       ]
     },
     {
-      "label": "大气化学",
-      "weight": 3,
+      "label": "临床研究方法学",
+      "weight": 2,
       "terms": [
-        "atmospheric chemistry",
-        "atmospheric oxidation",
-        "photochemistry",
-        "photochemical",
-        "secondary organic aerosol",
-        "soa",
-        "nox",
-        "voc",
-        "volatile organic",
-        "chemical transport model",
-        "heterogeneous chemistry",
-        "atmospheric lifetime",
-        "radical chemistry",
-        "oh radical"
+        "meta-analysis",
+        "systematic review",
+        "randomized controlled trial",
+        "randomised controlled trial",
+        "cohort study",
+        "case-control",
+        "survival analysis",
+        "propensity score",
+        "causal inference",
+        "mendelian randomization",
+        "real-world",
+        "external validation",
+        "internal validation",
+        "decision curve analysis",
+        "calibration",
+        "nomogram",
+        "biomarker",
+        "prisma",
+        "strobe",
+        "tripod",
+        "consort"
       ]
     },
     {
-      "label": "生物地球化学",
-      "weight": 3,
+      "label": "房颤与中西医结合",
+      "weight": 2,
       "terms": [
-        "biogeochemistry",
-        "biogeochemical",
-        "carbon cycle",
-        "nitrogen cycle",
-        "nutrient cycling",
-        "methane",
-        "ch4 flux",
-        "co2 flux",
-        "carbon flux",
-        "terrestrial carbon",
-        "soil carbon",
-        "nitrous oxide",
-        "n2o"
+        "atrial fibrillation",
+        "atrial flutter",
+        "catheter ablation",
+        "anticoagulation",
+        "antiarrhythmic",
+        "traditional chinese medicine",
+        "chinese herbal medicine",
+        "acupuncture",
+        "integrative medicine",
+        "herbal medicine"
       ]
     }
   ],
@@ -134,39 +154,63 @@
   },
   "journals": [
     {
-      "name": "Nature",
-      "issn": "0028-0836",
-      "rss": "https://www.nature.com/nature.rss",
+      "name": "Nature Medicine",
+      "issn": "1078-8956",
+      "rss": "https://www.nature.com/nm.rss",
       "enabled": true
     },
     {
-      "name": "Science",
-      "issn": "0036-8075",
-      "rss": "https://www.science.org/action/showFeed?type=etoc&feed=rss&jc=science",
+      "name": "The Lancet Digital Health",
+      "issn": "2589-7500",
+      "rss": "https://rss.sciencedirect.com/publication/science/25897500",
       "enabled": true
     },
     {
-      "name": "Nature Climate Change",
-      "issn": "1758-6798",
-      "rss": "https://www.nature.com/nclimate.rss",
+      "name": "npj Digital Medicine",
+      "issn": "2398-6352",
+      "rss": "https://www.nature.com/npjdigitalmed.rss",
       "enabled": true
     },
     {
-      "name": "Nature Geoscience",
-      "issn": "1752-0908",
-      "rss": "https://www.nature.com/ngeo.rss",
+      "name": "Nature Machine Intelligence",
+      "issn": "2522-5839",
+      "rss": "https://www.nature.com/natmachintell.rss",
       "enabled": true
     },
     {
-      "name": "Nature Sustainability",
-      "issn": "2398-9629",
-      "rss": "https://www.nature.com/natsustain.rss",
+      "name": "Nature Biotechnology",
+      "issn": "1087-0156",
+      "rss": "https://www.nature.com/nbt.rss",
       "enabled": true
     },
     {
-      "name": "Nature Cities",
-      "issn": "2731-9997",
-      "rss": "https://www.nature.com/natcities.rss",
+      "name": "eClinicalMedicine",
+      "issn": "2589-5370",
+      "rss": "https://rss.sciencedirect.com/publication/science/25895370",
+      "enabled": true
+    },
+    {
+      "name": "JAMA",
+      "issn": "0098-7484",
+      "rss": "",
+      "enabled": true
+    },
+    {
+      "name": "The Lancet",
+      "issn": "0140-6736",
+      "rss": "https://rss.sciencedirect.com/publication/science/01406736",
+      "enabled": true
+    },
+    {
+      "name": "New England Journal of Medicine",
+      "issn": "0028-4793",
+      "rss": "",
+      "enabled": true
+    },
+    {
+      "name": "BMJ",
+      "issn": "0959-8138",
+      "rss": "",
       "enabled": true
     },
     {
@@ -176,57 +220,33 @@
       "enabled": true
     },
     {
-      "name": "Science Advances",
-      "issn": "2375-2548",
-      "rss": "https://www.science.org/action/showFeed?type=etoc&feed=rss&jc=sciadv",
+      "name": "Science",
+      "issn": "0036-8075",
+      "rss": "https://www.science.org/action/showFeed?type=etoc&feed=rss&jc=science",
       "enabled": true
     },
     {
-      "name": "Earth's Future",
-      "issn": "2328-4277",
-      "rss": "https://agupubs.onlinelibrary.wiley.com/feed/23284277/most-recent",
+      "name": "Artificial Intelligence in Medicine",
+      "issn": "0933-3657",
+      "rss": "https://rss.sciencedirect.com/publication/science/09333657",
       "enabled": true
     },
     {
-      "name": "Atmospheric Chemistry and Physics",
-      "issn": "1680-7324",
-      "rss": "https://acp.copernicus.org/xml/rss2_0.xml",
+      "name": "Computers in Biology and Medicine",
+      "issn": "0010-4825",
+      "rss": "https://rss.sciencedirect.com/publication/science/00104825",
       "enabled": true
     },
     {
-      "name": "Environmental Science & Technology",
-      "issn": "0013-936X",
+      "name": "Radiology",
+      "issn": "0033-8419",
       "rss": "",
       "enabled": true
     },
     {
-      "name": "Environmental Research Letters",
-      "issn": "1748-9326",
-      "rss": "https://iopscience.iop.org/journal/rss/1748-9326",
-      "enabled": true
-    },
-    {
-      "name": "Geophysical Research Letters",
-      "issn": "1944-8007",
-      "rss": "https://agupubs.onlinelibrary.wiley.com/feed/19448007/most-recent",
-      "enabled": true
-    },
-    {
-      "name": "Journal of Geophysical Research: Atmospheres",
-      "issn": "2169-8996",
-      "rss": "https://agupubs.onlinelibrary.wiley.com/feed/21698996/most-recent",
-      "enabled": true
-    },
-    {
-      "name": "Atmospheric Environment",
-      "issn": "1352-2310",
-      "rss": "https://rss.sciencedirect.com/publication/science/13522310",
-      "enabled": true
-    },
-    {
-      "name": "Remote Sensing of Environment",
-      "issn": "0034-4257",
-      "rss": "https://rss.sciencedirect.com/publication/science/00344257",
+      "name": "Journal of the American Medical Informatics Association",
+      "issn": "1067-5027",
+      "rss": "",
       "enabled": true
     }
   ],
