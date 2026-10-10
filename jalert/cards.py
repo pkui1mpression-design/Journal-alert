@@ -202,19 +202,22 @@ def collect(reports_dir: Path, topic_labels: list[str] | None = None
     next report happens to contain it. Labels seen only in the reports are
     appended afterwards, so a report from an older config still renders.
     """
-    paths = sorted(reports_dir.glob("*.md"), reverse=True)
-    reports: list[dict] = []
+    # rglob, not glob: a day is now one top-level file plus one file per
+    # discipline subdirectory. Sorting by stem keeps days in order regardless
+    # of which folder a file sits in.
+    paths = sorted(reports_dir.rglob("*.md"), key=lambda p: p.stem, reverse=True)
+    by_day: dict[str, dict] = {}
     articles: list[dict] = []
     topics: list[str] = [t for t in (topic_labels or []) if t]
     seen: set[str] = set()
 
     for path in paths:
         meta, entries = parse_report(path)
-        reports.append({
-            "date": meta["date"],
-            "generated": meta.get("generated", ""),
-            "count": len(entries),
-        })
+        # Several files share a date now, so the day's row accumulates instead
+        # of being appended once per file.
+        day = by_day.setdefault(meta["date"], {"date": meta["date"], "generated": "", "count": 0})
+        day["count"] += len(entries)
+        day["generated"] = max(day["generated"], meta.get("generated", "") or "")
         for label in meta.get("topics", []):
             if label and label not in topics:
                 topics.append(label)
@@ -235,7 +238,7 @@ def collect(reports_dir: Path, topic_labels: list[str] | None = None
     for index, entry in enumerate(articles):
         entry["id"] = index
 
-    reports.sort(key=lambda r: r["date"], reverse=True)
+    reports = sorted(by_day.values(), key=lambda r: r["date"], reverse=True)
     return articles, reports, topics
 
 

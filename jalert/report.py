@@ -48,19 +48,27 @@ def _frontmatter(
     new_count: int,
     listed: int,
     generated_at: str,
+    scope: str = "",
 ) -> list[str]:
     """YAML front matter, so Obsidian properties and Dataview can query reports.
 
     Lists are emitted with ``json.dumps`` - JSON is a subset of YAML, so quoting
     stays correct even when a keyword label contains a colon or a quote.
+
+    ``scope`` is set on the per-discipline reports that live in their own
+    subdirectory; it makes those files filterable apart from the main report.
     """
     topics = [k.get("label", "") for k in cfg.get("keywords", [])]
     journals = {s["journal"] for s in statuses}
     failed = [s for s in statuses if not s["ok"]]
-    return [
+    lines = [
         "---",
         f"date: {day}",
         f"generated: {generated_at}",
+    ]
+    if scope:
+        lines.append(f"scope: {json.dumps(scope, ensure_ascii=False)}")
+    lines.extend([
         f"window_days: {cfg.get('window', {}).get('days', 3)}",
         f"fetched: {fetched_total}",
         f"matched: {matched_total}",
@@ -72,10 +80,11 @@ def _frontmatter(
         f"journals: {len(journals)}",
         f"sources_failed: {len(failed)}",
         f"topics: {json.dumps(topics, ensure_ascii=False)}",
-        "tags: [journal-alert]",
+        f"tags: {json.dumps(['journal-alert'] + ([scope] if scope else []), ensure_ascii=False)}",
         "---",
         "",
-    ]
+    ])
+    return lines
 
 
 def _source_status_section(statuses: list[dict], mode: str) -> list[str]:
@@ -134,6 +143,7 @@ def build_markdown(
     generated_at: str,
     entries_total: int | None = None,
     all_entries: list[dict] | None = None,
+    scope: str = "",
 ) -> str:
     project = cfg.get("project", {}).get("name", "文献日报")
     # Tier counts always describe the *whole* matched set, never just the rows we
@@ -158,9 +168,10 @@ def build_markdown(
                 new_count=new_count,
                 listed=len(entries),
                 generated_at=generated_at,
+                scope=scope,
             )
         )
-    lines.append(f"# {project} · {day}")
+    lines.append(f"# {project} · {scope} · {day}" if scope else f"# {project} · {day}")
     lines.append("")
     lines.append(
         f"> 本次运行：抓取 **{fetched_total}** 篇 ｜ 关键词命中 **{matched_total}** 篇 ｜ "
@@ -183,6 +194,11 @@ def build_markdown(
     )
     lines.append(f"> 关注方向：{keyword_labels}")
     lines.append(f"> 时间窗：近 {cfg.get('window', {}).get('days', 3)} 天 ｜ 生成时间：{generated_at}")
+    if scope:
+        lines.append(
+            f"> 📁 本文件是 **{scope}** 学科的专属日报，只收录该学科命中的文献；"
+            "其余学科见各自的子目录。"
+        )
     lines.append("")
 
     if not entries:

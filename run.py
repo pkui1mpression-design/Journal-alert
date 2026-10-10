@@ -121,7 +121,10 @@ def prune_reports(reports_dir: Path, keep_days: int, log) -> None:
         return
     cutoff = date.today().toordinal() - keep_days
     removed = 0
-    for pattern in ("*.md", "*.json"):
+    # The plain globs cover the top-level daily report; the "*/" ones cover the
+    # per-discipline subdirectories. Without those, a discipline folder would
+    # grow forever while the main report was pruned correctly.
+    for pattern in ("*.md", "*.json", "*/*.md", "*/*.json"):
         for path in reports_dir.glob(pattern):
             try:
                 stamp = date.fromisoformat(path.stem).toordinal()
@@ -130,6 +133,10 @@ def prune_reports(reports_dir: Path, keep_days: int, log) -> None:
             if stamp < cutoff:
                 path.unlink(missing_ok=True)
                 removed += 1
+    # Do not leave year-old discipline folders sitting around empty.
+    for sub in reports_dir.iterdir():
+        if sub.is_dir() and not any(sub.iterdir()):
+            sub.rmdir()
     if removed:
         log.info("pruned %d report(s)/snapshot(s) older than %d days", removed, keep_days)
 
@@ -163,49 +170,164 @@ def build_cards_page(cfg: dict, log) -> int:
     return 0
 
 
-def cap_entries(entries: list[dict], cfg: dict, log) -> tuple[list[dict], int]:
-    """Trim the rendered report to the top-N entries (``output.max_entries``).
+def cap_entries(entries: list[dict], cfg: dict, log, scope: str = "") -> tuple[list[dict], int]:
+    """Trim a rendered report to the top-N entries (``output.max_entries``).
 
     ``entries`` must already be sorted by ``sort_entries`` (tier, then score,
     then date), so slicing keeps the most important ones. The full set is still
     written to the SQLite ledger and the JSON snapshot, so raising the cap and
     running ``--rerender`` brings the rest back without re-fetching.
     A cap of ``0`` (the default) means "no limit".
+
+    The cap applies per report file, not per run - each discipline keeps its own
+    top-N, so a busy new discipline cannot crowd the main report.
     """
     cap = int(cfg.get("output", {}).get("max_entries", 0) or 0)
     total = len(entries)
     if cap > 0 and total > cap:
-        log.info("report capped to top %d of %d entries (output.max_entries)", cap, total)
+        log.info("report capped to top %d of %d entries%s",
+                 cap, total, f" [{scope}]" if scope else "")
         return entries[:cap], total
     return entries, total
 
 
+def main_topic_labels(cfg: dict) -> set[str]:
+    """Labels whose keyword groups feed the main daily report.
+
+    Groups are main when they carry ``"main": true`` in ``config.json``. The
+    default is the opposite, so a newly added discipline lands in its own
+    subdirectory without anyone having to remember a flag.
+    """
+    return {k.get("label", "") for k in cfg.get("keywords", []) if k.get("main")}
+
+
+def partition_entries(
+    entries: list[dict], main_labels: set[str]
+) -> tuple[list[dict], dict[str, list[dict]]]:
+    """Split a day's entries into the main report and per-discipline buckets.
+
+    An entry belongs to the main report when *any* of its matched labels is a
+    main discipline. That keeps a paper which touches both air pollution and
+    urban GIS in the main report instead of yanking it out of the section its
+    reader expects. Anything with no main label files under its first matched
+    label, so every entry lands in exactly one file - no duplication, and the
+    per-discipline folders stay a partition rather than an overlapping index.
+    """
+    main: list[dict] = []
+    folders: dict[str, list[dict]] = {}
+    for entry in entries:
+        labels = [label for label in (entry["scored"].labels or []) if label]
+        if not labels or any(label in main_labels for label in labels):
+            main.append(entry)
+        else:
+            folders.setdefault(labels[0], []).append(entry)
+    return main, folders
+
+
+def render_reports(
+    *,
+    day: str,
+    cfg: dict,
+    entries: list[dict],
+    statuses: list[dict],
+    fetched_total: int,
+    matched_total: int,
+    new_count: int,
+    seen_before: int,
+    generated_at: str,
+    reports_dir: Path,
+    log,
+    write: bool = True,
+) -> tuple[list[Path], str]:
+    """Write the day's report files: the main one plus one per extra discipline.
+
+    Returns ``(paths_written, main_markdown)``; ``main_markdown`` is returned
+    even when ``write`` is false so ``--dry-run``/``--print`` can show it.
+    """
+    main_labels = main_topic_labels(cfg)
+    main_entries, folders = partition_entries(entries, main_labels)
+
+    listed, total = cap_entries(main_entries, cfg, log)
+    main_markdown = build_markdown(
+        day=day,
+        cfg=cfg,
+        entries=listed,
+        statuses=statuses,
+        fetched_total=fetched_total,
+        matched_total=matched_total,
+        new_count=new_count,
+        seen_before=seen_before,
+        generated_at=generated_at,
+        entries_total=total,
+        all_entries=main_entries,
+    )
+
+    written: list[Path] = []
+    if not write:
+        return written, main_markdown
+
+    main_path = reports_dir / f"{day}.md"
+    main_path.write_text(main_markdown, encoding="utf-8", newline="\n")
+    written.append(main_path)
+
+    for label, bucket in sorted(folders.items()):
+        # Narrowing config to this one group is what makes the front matter,
+        # the 关注方向 line and the tier counts describe the discipline rather
+        # than the whole run.
+        scoped_cfg = {
+            **cfg,
+            "keywords": [k for k in cfg.get("keywords", []) if k.get("label") == label],
+        }
+        listed, total = cap_entries(bucket, scoped_cfg, log, scope=label)
+        path = reports_dir / label / f"{day}.md"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(
+            build_markdown(
+                day=day,
+                cfg=scoped_cfg,
+                entries=listed,
+                statuses=statuses,
+                fetched_total=fetched_total,
+                matched_total=matched_total,
+                new_count=new_count,
+                seen_before=seen_before,
+                generated_at=generated_at,
+                entries_total=total,
+                all_entries=bucket,
+                scope=label,
+            ),
+            encoding="utf-8",
+            newline="\n",
+        )
+        written.append(path)
+    return written, main_markdown
+
+
 def rerender(args, cfg, log, day, tiers, day_snapshot, report_path) -> int:
-    """Rebuild a report from the saved day snapshot without any network access."""
+    """Rebuild a day's reports from the saved snapshot without any network access."""
     snapshot = load_snapshot(day_snapshot)
     entries = snapshot.get("entries") or []
     if not entries:
         log.error("no snapshot for %s - run a normal pass first", day)
         return 1
     day_entries = sort_entries(hydrate_entries(entries), tiers, day)
-    listed_entries, entries_total = cap_entries(day_entries, cfg, log)
-    markdown = build_markdown(
+    written, main_markdown = render_reports(
         day=day,
         cfg=cfg,
-        entries=listed_entries,
+        entries=day_entries,
         statuses=snapshot.get("statuses", []),
         fetched_total=int(snapshot.get("fetched", 0)),
         matched_total=int(snapshot.get("matched", 0)),
         new_count=int(snapshot.get("new_total", len(day_entries))),
         seen_before=0,
         generated_at=datetime.now().strftime("%Y-%m-%d %H:%M"),
-        entries_total=entries_total,
-        all_entries=day_entries,
+        reports_dir=report_path.parent,
+        log=log,
     )
-    report_path.write_text(markdown, encoding="utf-8", newline="\n")
-    log.info("report re-rendered from snapshot: %s (%d entries)", report_path, len(day_entries))
+    log.info("re-rendered %d report file(s) from snapshot (%d entries)",
+             len(written), len(day_entries))
     if args.print_report:
-        print("\n" + markdown)
+        print("\n" + main_markdown)
     return 0
 
 
@@ -468,27 +590,28 @@ def run(args: argparse.Namespace) -> int:
             )
 
         day_entries = sort_entries(hydrate_entries(merged_records), tiers, day)
-        listed_entries, entries_total = cap_entries(day_entries, cfg, log)
         generated_at = datetime.now().strftime("%Y-%m-%d %H:%M")
-        markdown = build_markdown(
+        written, markdown = render_reports(
             day=day,
             cfg=cfg,
-            entries=listed_entries,
+            entries=day_entries,
             statuses=statuses,
             fetched_total=len(items),
             matched_total=len(matched),
             new_count=len(new_entries),
             seen_before=len(known),
             generated_at=generated_at,
-            entries_total=entries_total,
-            all_entries=day_entries,
+            reports_dir=reports_dir,
+            log=log,
+            write=not args.dry_run,
         )
 
         if args.dry_run or args.print_report:
             print("\n" + markdown)
         if not args.dry_run:
-            report_path.write_text(markdown, encoding="utf-8", newline="\n")
             log.info("report written: %s", report_path)
+            for extra in written[1:]:
+                log.info("discipline report written: %s", extra)
             if cfg.get("output", {}).get("write_json_snapshot", True):
                 snapshot_payload["generated"] = generated_at
                 (reports_dir / f"{day}.json").write_text(
