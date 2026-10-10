@@ -23,9 +23,9 @@ from types import SimpleNamespace
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from jalert import push as push_module  # noqa: E402
-from jalert.cards import write_cards  # noqa: E402
+from jalert.cards import parse_report, write_cards  # noqa: E402
 from jalert.config import describe_secret_sources, load_config  # noqa: E402
-from jalert.fetch import collect_items, http_request  # noqa: E402
+from jalert.fetch import collect_items, http_request, make_uid  # noqa: E402
 from jalert.report import build_digest, build_markdown  # noqa: E402
 from jalert.score import Scorer, tier_of  # noqa: E402
 from jalert.state import Store, last_run_started  # noqa: E402
@@ -114,6 +114,64 @@ def load_snapshot(path: Path) -> dict:
         except (json.JSONDecodeError, OSError):
             return {}
     return {}
+
+
+def recover_entries(report_path: Path) -> list[dict]:
+    """Rebuild renderable entries from a report that is already on disk.
+
+    On CI the merge set starts empty every run: ``state/daily/`` and
+    ``reports/*.json`` are both git-ignored, so nothing carries the day's earlier
+    entries from one run to the next. A same-day re-run would then render only
+    what *that* run happened to find and overwrite a report that listed
+    everything found so far - and the report file is the archive.
+
+    Reading it back is lossy (abstracts return truncated at 700 characters, and
+    the per-match point values are gone) but that only affects rendering:
+    recovered entries are never written back to the ledger.
+    """
+    if not report_path.is_file():
+        return []
+    try:
+        _meta, parsed = parse_report(report_path)
+    except (OSError, ValueError):
+        return []
+
+    records: list[dict] = []
+    for entry in parsed:
+        # The 匹配 column was flattened to "标题：pm10、遥感：tropomi"; rebuild the
+        # match list from it so the re-rendered report keeps that line.
+        parts = [p.strip() for p in (entry["matchWhere"] or "").split("、")]
+        matches = []
+        for index, label in enumerate(entry["topics"]):
+            field_name, _, term = (parts[index] if index < len(parts) else "").partition("：")
+            matches.append({
+                "label": label,
+                "term": term,
+                "field_name": "title" if field_name == "标题" else "abstract",
+                "points": 0,
+            })
+        records.append({
+            "item": {
+                "uid": make_uid(entry["doi"], entry["url"], entry["title"]),
+                "title": entry["title"],
+                "url": entry["url"],
+                "doi": entry["doi"],
+                "journal": entry["journal"],
+                "issn": "",
+                # _fmt_date re-adds this suffix at render time; keeping it here
+                # would stack it up on every re-run.
+                "date": (entry["pubdate"] or "").split("（")[0].strip(),
+                "abstract": entry["abstract"],
+                "authors": entry["authors"],
+                "source": "report",
+            },
+            "scored": {
+                "score": entry["score"] or 0,
+                "labels": entry["topics"],
+                "matches": matches,
+            },
+        })
+    return records
 
 
 def prune_reports(reports_dir: Path, keep_days: int, log) -> None:
@@ -561,6 +619,13 @@ def run(args: argparse.Namespace) -> int:
 
         previous = {} if args.dry_run else load_snapshot(day_snapshot)
         merged_records = list(previous.get("entries", []))
+        if not merged_records and not args.dry_run:
+            # No day snapshot (CI never has one) - fall back to the report already
+            # on disk so this run adds to the day instead of replacing it.
+            merged_records = recover_entries(report_path)
+            if merged_records:
+                log.info("recovered %d entries from %s (no day snapshot available)",
+                         len(merged_records), report_path.name)
         added_now = 0
         if args.dry_run:
             merged_records = [entry_to_dict(e) for e in new_entries]
@@ -591,25 +656,31 @@ def run(args: argparse.Namespace) -> int:
 
         day_entries = sort_entries(hydrate_entries(merged_records), tiers, day)
         generated_at = datetime.now().strftime("%Y-%m-%d %H:%M")
-        written, markdown = render_reports(
-            day=day,
-            cfg=cfg,
-            entries=day_entries,
-            statuses=statuses,
-            fetched_total=len(items),
-            matched_total=len(matched),
-            new_count=len(new_entries),
-            seen_before=len(known),
-            generated_at=generated_at,
-            reports_dir=reports_dir,
-            log=log,
-            write=not args.dry_run,
-        )
+        # Safety net: never blank out a report that already has content.
+        if (not day_entries and not args.dry_run
+                and report_path.is_file() and report_path.stat().st_size > 0):
+            log.warning("nothing to render for %s; leaving the existing reports alone", day)
+            written, markdown = [], ""
+        else:
+            written, markdown = render_reports(
+                day=day,
+                cfg=cfg,
+                entries=day_entries,
+                statuses=statuses,
+                fetched_total=len(items),
+                matched_total=len(matched),
+                new_count=len(new_entries),
+                seen_before=len(known),
+                generated_at=generated_at,
+                reports_dir=reports_dir,
+                log=log,
+                write=not args.dry_run,
+            )
 
         if args.dry_run or args.print_report:
             print("\n" + markdown)
-        if not args.dry_run:
-            log.info("report written: %s", report_path)
+        if not args.dry_run and written:
+            log.info("report written: %s", written[0])
             for extra in written[1:]:
                 log.info("discipline report written: %s", extra)
             if cfg.get("output", {}).get("write_json_snapshot", True):
