@@ -9,7 +9,7 @@
 | | |
 |---|---|
 | [1. 它做什么](#1-它做什么) | [2. 快速开始](#2-快速开始) |
-| [3. 常用命令](#3-常用命令) | [4. 目录结构](#4-目录结构) |
+| [3. 常用命令](#3-常用命令) | [4. 目录结构 / 在线卡片墙 / 学科分区](#4-目录结构) |
 | [5. 用 Obsidian 管理日报](#5-用-obsidian-管理日报) | [6. 配置](#6-配置) |
 | [7. 微信推送](#7-微信推送) | [8. 每天自动运行](#8-每天自动运行) |
 | [9. 换电脑迁移](#9-换电脑迁移) | [10. 数据源](#10-数据源) |
@@ -20,7 +20,7 @@
 ## 1. 它做什么
 
 ```
-16 本目标期刊 ──┬─ RSS（官网推送源）
+24 本目标期刊 ──┬─ RSS（官网推送源）
                 ├─ OpenAlex API（按 ISSN + 日期）
                 └─ Crossref API（按 ISSN + 日期）
                         │
@@ -37,6 +37,8 @@
    SQLite 历史库去重 ──► 只保留「从未见过」的新文献
                         │
                         ├─► Markdown 每日阅读报（必读 / 值得一读 / 其他相关）
+                        │     └─ 按学科分流：主学科进当天日报，其他学科各写一个子目录
+                        ├─► 在线卡片墙 docs/index.html（GitHub Pages，见 4.1）
                         └─► 微信推送摘要（Server酱 / PushPlus / Bark）
 ```
 
@@ -111,7 +113,7 @@
 # 完整跑一次：抓取 → 筛选 → 写报告 → 推送
 run_daily.cmd --once
 
-# 只检查 16 本刊 × 3 个数据源的连通性，不写任何文件
+# 只检查 24 本刊 × 3 个数据源的连通性，不写任何文件
 run_daily.cmd --check
 
 # 试运行：不写库、不写报告、不推送，直接把报告打到屏幕上
@@ -134,6 +136,9 @@ run_daily.cmd --doctor
 
 # 改完关键词/分级阈值后，重排今天的日报，不必重新联网抓取
 run_daily.cmd --rerender
+
+# 只重建在线卡片墙（读 reports/，不联网、不动台账、不推送）
+run_daily.cmd --cards
 ```
 
 `run_daily.cmd` 的两种模式：**不带参数**（计划任务用）输出写进 `logs\run-last.log`；**带参数**输出直接打在屏幕上，方便交互排查。
@@ -153,10 +158,13 @@ run_daily.cmd --rerender
 | `jalert/state.py` | SQLite 历史库（跨天去重 + 累积文献台账） |
 | `jalert/report.py` | Markdown 报告与推送文案生成 |
 | `jalert/push.py` | Server酱 / PushPlus / Bark 推送 |
+| `jalert/cards.py` | 把 `reports/` 渲染成单文件卡片墙 HTML（见 [4.1](#41-在线卡片墙)） |
 | `jalert/config.py` | 配置分层加载（默认值 → `config.json` → `config.local.json` → 环境变量） |
-| `reports/YYYY-MM-DD.md` | **每日阅读报**（正文） |
-| `reports/YYYY-MM-DD.json` | 同日结构化数据（可再导入 Excel/Obsidian） |
-| `state/daily/YYYY-MM-DD.json` | 当日报表快照（同一天多次运行会合并，不会互相覆盖） |
+| `reports/YYYY-MM-DD.md` | **每日阅读报**（正文）——只收录标了 `"main": true` 的学科 |
+| `reports/<学科>/YYYY-MM-DD.md` | 非主学科的专属日报，每个学科一个子目录（见 [4.2](#42-按学科分流的子目录)） |
+| `reports/YYYY-MM-DD.json` | 同日结构化数据（可再导入 Excel/Obsidian）。**不入库** |
+| `docs/index.html` | 在线卡片墙，GitHub Pages 直接发布这一份文件 |
+| `state/daily/YYYY-MM-DD.json` | 当日报表快照。**不入库**，只上传为 artifact |
 | `state/seen.sqlite` | 历史库：`articles` 表是累积文献台账，`runs` 表是运行日志 |
 | `logs/` | 运行日志（日报库那边另有一份 `.sync.log`） |
 | `run_daily.cmd` | 启动脚本（自动寻找可用的 Python） |
@@ -177,6 +185,75 @@ python make_package.py --keep-secrets  # 保留密钥：只在自己电脑之间
 ```
 
 包里会自动放一份 `先读我-安装三步.txt`（内容由 `make_package.py` 里的 `QUICKSTART` 生成，所以仓库里不放这个文件）。已实测：解压到**含空格的任意路径**后 `run_daily.cmd --doctor` 返回「一切正常」。
+
+### 4.1 在线卡片墙
+
+日报之外，每次运行还会把**全部历史日报**渲染成一张卡片墙网页：
+
+```
+https://pkui1mpression-design.github.io/Journal-alert/
+```
+
+小红书式瀑布流，**一张卡片就是一篇文献**，按学科分组，点卡片弹出完整摘要、作者、DOI 和原文链接。顶部可以按学科 / 分级筛选，也能搜标题、摘要、作者、期刊。
+
+| 特性 | 说明 |
+|---|---|
+| 收录范围 | `reports/` 下**所有**日报（含各学科子目录），跨天按 DOI 去重 |
+| 篇数 | 等于日报里实际列出的篇数。受 `output.max_entries` 限制，所以日报列多少，页面就有多少 |
+| 依赖 | **零外部资源**——没有 CDN、没有网络字体、没有图片请求。断网、`file://` 双击打开都正常 |
+| 更新时机 | `run.py --once` 末尾自动重建并提交，Pages 随即重新发布。也可单独跑 `run.py --cards` |
+
+配置项（都有默认值，不写也能跑）：
+
+```jsonc
+"output": {
+  "cards": true,                    // 关掉就完全不生成卡片墙
+  "cards_html": "docs/index.html"   // 输出路径，相对项目根目录
+}
+```
+
+部署到 GitHub Pages 只需一次：仓库 **Settings → Pages → Source** 选 `Deploy from a branch`，分支 `main`、目录 **`/docs`**。`docs/.nojekyll` 已经放好，跳过 Jekyll 处理。
+
+### 4.2 按学科分流的子目录
+
+学科越加越多时，全塞进一个日报会变得臃肿。所以每个学科组在 `config.json` 里有一个 `main` 标记，决定它的文献写到哪里：
+
+```jsonc
+"keywords": [
+  { "label": "空气污染", "main": true, "weight": 3, "terms": [ ... ] },   // → reports/2026-10-10.md
+  { "label": "城市地理信息系统",           "weight": 3, "terms": [ ... ] } // → reports/城市地理信息系统/2026-10-10.md
+]
+```
+
+实际长这样：
+
+```
+reports/
+  2026-10-10.md                   ← 主日报：空气污染 / 遥感 / 大气化学 / 生物地球化学
+  2026-10-09.md
+  城市地理信息系统/
+    2026-10-10.md                 ← 该学科专属日报
+    2026-10-09.md
+```
+
+要点：
+
+* **默认是「没有 `main` 就自己开一个子目录」**。所以加新学科只需要往 `keywords` 里加一组词，不用改代码、也不用记得补标记。
+* **一篇文献只落一个文件**。同时命中多个学科时，只要**其中任意一个**是主学科就留在主日报；否则按它命中的第一个学科归档。子目录之间是**划分**关系，不是重叠的索引。
+* **限流按文件独立**。主日报和每个学科日报各自吃满 `output.max_entries`，新学科再热闹也挤不掉主日报的位置。
+* **子目录日报带 `scope` 属性**，Obsidian 里可以直接 `scope: 城市地理信息系统` 筛出来：
+
+  ```yaml
+  ---
+  date: 2026-10-10
+  scope: "城市地理信息系统"
+  topics: ["城市地理信息系统"]
+  tags: ["journal-alert", "城市地理信息系统"]
+  ---
+  ```
+
+* **清理是递归的**。`output.keep_days` 到期的子目录日报一并删除，清空后的学科目录会被回收（不会留下空壳）。
+* 想把某个学科在主日报和子目录之间搬家，改 `main` 一个字段即可，不用动别的。
 
 ---
 
@@ -329,6 +406,7 @@ SORT file.name DESC
 "keywords": [
   {
     "label": "空气污染",              // 报告里显示的中文名
+    "main": true,                     // 进当天主日报；不写则单独开一个子目录（见 4.2）
     "weight": 3,                      // 权重，越大越优先
     "terms": [                        // 命中的英文写法，全部小写、不分大小写匹配
       "air pollution", "pm2.5", "particulate matter", "aerosol", "ozone"
@@ -341,6 +419,8 @@ SORT file.name DESC
 
 * **`terms` 是召回率的关键**。同一个概念要列出各种英文写法（`pm2.5` / `pm25`；复数不用写，匹配时已按字母数字边界处理）。
 * 匹配使用「字母数字边界」，所以 `no2` 不会误命中 `no2something`，`soa` 也不会命中 `soap`。
+* **加一个新学科**：往 `keywords` 里追加一组 `{ "label": ..., "terms": [...] }` 就行。不写 `main` 时它的日报会自动落到 `reports/<学科>/` 子目录，主日报不受影响，见 [4.2](#42-按学科分流的子目录)。
+* **一篇文献可能同时命中多个学科**。日报的「匹配」行会把它们全部列出（用 `、` 分隔），卡片墙据此把这篇归入每个命中的学科。
 * 想临时屏蔽某类内容，加到 `exclude_terms`（命中即整条丢弃，默认已屏蔽撤稿/勘误/社论）。
 * `exclude_doi_prefixes` 默认屏蔽 `10.1038/d41586`（Nature 新闻/评论/播客），只保留研究论文。
 * 增删期刊：`journals` 数组里加 `{ "name": ..., "issn": ..., "rss": ... }`。`issn` 必须准确，OpenAlex/Crossref 靠它取数。
@@ -398,14 +478,16 @@ DEFAULTS（代码里的默认值）
 | 不入库 | 原因 |
 |---|---|
 | `logs/` | 运行日志，含本机 Python 路径；云端改成 Actions artifact |
-| `state/daily/` | 每日快照，每天 ~90 KB，只服务 `--rerender`，无跨天价值 |
+| `state/daily/` | 每日快照，每天 ~90 KB。本地跑同一天第二次时靠它合并，但 CI 每次都全新检出、拿不到它，所以不入库；缺失时程序会改从当天日报回读，见 [第 8.1 节](#8-每天自动运行) |
 | `state/*.bak-*` | 数据库备份 |
 | `reports/*.json` | 与日报同内容的机器可读版，每天 ~90 KB，会无限堆积 |
 | `config.local.json` | 密钥 |
 | `.workbuddy/` | 助手工具的项目数据 |
 | `__pycache__/` | 字节码 |
 
-被跟踪的只有：`state/seen.sqlite`（去重台账）、`reports/YYYY-MM-DD.md`（日报正文）、其余源码与文档。
+被跟踪的有：`state/seen.sqlite`（去重台账）、`reports/YYYY-MM-DD.md`（主日报正文）、`reports/<学科>/YYYY-MM-DD.md`（各学科子目录日报）、`docs/index.html`（在线卡片墙），以及其余源码与文档。
+
+> 注意上面第 2、4 条：**「同一天多次运行自动合并」依据的快照文件恰好是不入库的**。本机连续跑没问题，CI 上补跑同一天则会走「从日报回读」的降级路径。详见 [8.1 节](#8-每天自动运行) 的说明。
 
 > **注意**：`.gitignore` 对**已跟踪**文件无效。如果某个文件已经被提交过，需要先取消跟踪：
 > ```powershell
@@ -549,8 +631,8 @@ on:
 #### 它做四件事
 
 1. `python run.py --doctor` —— 先自检（Python 版本、目录写入、三个海外站点连通性），失败原因一眼可见。这一步标了 `continue-on-error`，偶发超时不会把整个任务判失败。
-2. `python run.py --once` —— 跑完整管线并推送
-3. `git commit && git push` —— 把 `state/seen.sqlite` 和当日日报写回仓库（标了 `if: always()`，即使抓取失败也保住台账）
+2. `python run.py --once` —— 跑完整管线：抓取 → 筛选 → 写日报（主日报 + 各学科子目录）→ 重建 `docs/index.html` → 推送
+3. `git commit && git push` —— 把 `state/seen.sqlite`、当日日报（含学科子目录）和卡片墙写回仓库（标了 `if: always()`，即使抓取失败也保住台账）。Pages 随后自动重新发布
 4. 上传 `logs/` 为 artifact（保留 90 天）+ 把当日日报渲染到运行页面的 Summary 里
 
 #### 一次性配置（3 分钟）
@@ -609,6 +691,14 @@ Actions 每次运行都是**全新容器**，`state/seen.sqlite`（「已读台�
 | C. 外部存储 | Release asset / 对象存储 / 数据库 | 不污染历史 | 要额外凭证和维护成本 |
 
 **推荐 A，就是现在这份。** 想彻底不要这些提交？把 `reports/` 和 `state/` 都 gitignore，改用方案 B——**不建议**，省下的只是几十个提交，换来一个会静默失效的去重机制。
+
+> **关于「同一天多次运行会合并」**：`state/daily/` 和 `reports/*.json` 都在 `.gitignore` 里（见 [第 6.4 节](#64-入库--不入库清单)），CI 又每次都是全新检出，所以**快照并不会跟着运行走**。平时每天只跑一次，当天从零开始，这个差异无所谓；但**手动补跑同一天**时要留意：
+>
+> * 程序发现没有快照，会退而从**磁盘上已经写好的当天日报**里把条目读回来当合并基础，再叠加本次新增，所以补跑是**累加**而不是覆盖。
+>   从日报回读是有损的（摘要回来只有 700 字截断、命中词的分值丢失），但只用于重新排版，不会写回去重库。
+> * 另有兜底：万一确实无内容可渲染、而当天日报已有内容，程序会保留原文件而不是把它清空。
+>
+> 这两个行为是 2026-10-10 补上的。在那之前，一次「0 篇新增」的补跑会把当天日报直接覆盖成空文件。
 
 #### 其他注意事项
 
@@ -799,7 +889,7 @@ Start-ScheduledTask -TaskName "JournalAlertDaily"
 
 ## 10. 数据源
 
-**结论：16 本刊里 15 本有可用 RSS；ACS 的 ES&T 已停用 RSS，由 OpenAlex + Crossref 双保险；每一本刊都至少有两个独立数据源覆盖，所以任何单一源失效都不会漏掉整本刊。**
+**结论：24 本刊里 20 本有可用 RSS；ACS 的 ES&T 与三本 GIS/城市类刊（IJGIS、Transactions in GIS、EPB）没有 RSS，由 OpenAlex + Crossref 双保险；每一本刊都至少有两个独立数据源覆盖，所以任何单一源失效都不会漏掉整本刊。**
 
 | 期刊 | RSS | OpenAlex | Crossref |
 |---|---|---|---|
@@ -819,16 +909,29 @@ Start-ScheduledTask -TaskName "JournalAlertDaily"
 | Journal of Geophysical Research: Atmospheres | ✅ 14 | ✅ 5 | ✅ 6 |
 | Atmospheric Environment | ✅ 55 | ✅ 1 | ✅ 60 |
 | Remote Sensing of Environment | ✅ 86 | ✅ 7 | ✅ 60 |
+| Computers, Environment and Urban Systems | ✅ 37 | ✅ 1 | ✅ 37 |
+| Landscape and Urban Planning | ✅ 34 | ✅ 9 | ✅ 65 |
+| Urban Climate | ✅ 93 | ✅ 7 | ✅ 37 |
+| Cities | ✅ 100 | ✅ 29 | ✅ 294 |
+| ISPRS Journal of Photogrammetry and Remote Sensing | ✅ 60 | ✅ 10 | ✅ 79 |
+| International Journal of Geographical Information Science | ❌ 无 RSS | ✅ 0 | ✅ 1 |
+| Transactions in GIS | ❌ 无 RSS | ✅ 3 | ✅ 4 |
+| Environment and Planning B: Urban Analytics and City Science | ❌ 无 RSS | ✅ 2 | ✅ 2 |
 
 数字是实测某一天时间窗内的条数，仅代表量级。⏱ 表示海外 API 偶发连接超时（重试后多数会成功，即便一直失败也有另外两个源兜底）。
 
+> 表格下半的 8 本刊是 2026-10-10 为「城市地理信息系统」学科新增的（Elsevier 的 5 本走 ScienceDirect RSS，三家 GIS/城市类刊没有 RSS）。它们的数字按**近 7 天**窗口实测，和上半的窗口长度不同，只看量级即可。三家纯 API 的刊物本身出版频率就低（一周 1–4 篇），量少属正常。
+
 **云端实测（2026-10-05）**：Actions 上 16 刊 × 3 源 = 48 次调用，**成功 46 次**。失败的 2 次是 Nature Cities 与 Nature Climate Change 的 RSS 报 XML 解析错误（`not well-formed (invalid token)`），0.2 秒即返回，属瞬时问题——本机抓同一地址正常。**因为每刊都有多源兜底，覆盖没有缺口。**
+
+**云端实测（2026-10-10，扩到 24 刊后）**：24 刊 × 3 源 = 72 次调用，**成功 69 次**，抓取 772 篇（去重后）。失败的 3 次全部是 Nature 系 RSS 的同一个 XML 解析错误（Nature Geoscience / Nature Sustainability / Nature Cities），与新增的 8 本刊无关——**新增的 5 个 ScienceDirect RSS 全部一次成功**。
 
 踩坑记录（以后加期刊时有用）：
 
 * **Wiley / AGU 的 RSS 地址必须用「不带横线」的 ISSN**：`https://agupubs.onlinelibrary.wiley.com/feed/19448007/most-recent`。带横线的 `1944-8007` 一律 404，这一条卡了很久。
 * **ACS（ES&T）已停止提供 RSS**，落地页里也没有 feed 链接，只能靠 OpenAlex + Crossref。
-* **ScienceDirect（Elsevier）的 RSS 可用**：`https://rss.sciencedirect.com/publication/science/<不带横线的ISSN>`，而且条数很多（Atmospheric Environment 55 条、RSE 86 条）。
+* **ScienceDirect（Elsevier）的 RSS 可用**：`https://rss.sciencedirect.com/publication/science/<不带横线的ISSN>`，而且条数很多（Atmospheric Environment 55 条、RSE 86 条）。2026-10-10 又验证了 5 本城市/GIS 类刊同样可用：CEUS、Landscape and Urban Planning、Urban Climate、Cities、ISPRS J. Photogrammetry。
+* **不是所有刊都有 RSS**。三家 GIS/城市类刊（IJGIS、Transactions in GIS、EPB）在 Taylor & Francis / SAGE 上，feed 地址不稳定，索性留 `"rss": ""` 走 OpenAlex + Crossref——**空 RSS 是合法配置，不会报错**，和 ES&T 一个待遇。
 * **Copernicus（ACP）**：`https://acp.copernicus.org/xml/rss2_0.xml`。
 * **IOP（ERL）**：`https://iopscience.iop.org/journal/rss/1748-9326`。
 * **Nature 的 RSS 里混有大量新闻/评论/播客**（DOI 前缀 `10.1038/d41586`），已由 `exclude_doi_prefixes` 过滤掉，只留研究论文。
@@ -864,19 +967,31 @@ Start-ScheduledTask -TaskName "JournalAlertDaily"
 
 本节是给**本机这个工作副本**用的运维记录，普通使用者可以跳过。
 
-### 12.1 现状（2026-10-06）
+### 12.1 现状（2026-10-10）
 
 | 项目 | 状态 |
 |---|---|
 | 仓库 | `pkui1mpression-design/Journal-alert`（**大小写敏感**），默认分支 `main`，公开 |
 | 运行方式 | GitHub Actions 每天 07:30（北京），本机计划任务 `JournalAlertDaily` **已注销**（XML 备份在 `C:\Users\wangs\JournalAlertDaily-task-backup.xml`） |
-| 仓库 Secret | `SERVERCHAN_SENDKEY` 已建 |
+| 仓库 Secret | `SERVERCHAN_SENDKEY` 已建（**建议轮换**，见下方） |
 | 仓库变量 | `JALERT_MAILTO = pkui1mpression@gmail.com` |
 | 推送验证 | ✅ run #2 日志 `push serverchan OK code=0` |
+| 期刊 | 24 本（20 本有 RSS，4 本纯 API：ES&T、IJGIS、Transactions in GIS、EPB） |
 | 日报格式 | 2026-10-06 起头部带 YAML 属性，数据源状态段压成一行摘要（`output.source_status = summary`）；历史三篇已按同格式回填 |
+| 学科分区 | 2026-10-10 起：`main: true` 的四个学科留在主日报，`城市地理信息系统` 等新学科写进 `reports/<学科>/` 子目录（见 [4.2](#42-按学科分流的子目录)） |
+| 在线卡片墙 | 2026-10-10 上线：<https://pkui1mpression-design.github.io/Journal-alert/>，Pages 源 = `main` / `/docs`（见 [4.1](#41-在线卡片墙)） |
 | 日报库 | `D:\journal-alert-reports\` —— 只镜像 `reports/` 的 Obsidian 库（**不带 git**）；同步走 `api.github.com`，双击 `同步.cmd` 或由计划任务 `JournalAlertObsidianSync` 每天跑 5 次（见 [第 5.3 节](#53-自动同步windows-计划任务)） |
 
-**旧提交里的明文 SendKey**：历史提交 `4d6a1224` 的 `config.json` 里有明文 SendKey，**公开仓库中仍可被未登录访问**——`--force` 只是让它脱离 `main` 分支，Git 对象本身还在，按 SHA 直取照样能读到。唯一可靠的补救是**把该密钥作废（轮换）**，已完成。要真正清掉旧对象只能删库重建（需 PAT 带 `delete_repo` 权限）或找 GitHub Support。
+**历史提交里的明文 SendKey**：这个坑踩过两次。`config.json` 一旦被本地旧副本覆盖，明文密钥就会跟着进公开仓库。`--force` 或后续提交都**不能**真正撤回——Git 对象还在，按 SHA 直取照样能读到未登录内容。
+
+| commit | 时间 | 情况 |
+|---|---|---|
+| `4d6a1224` | 2026-10-05 前 | 已轮换处理 |
+| `4a95fb79` | 2026-10-10 | 推送方误用过期工作副本带进去，暴露约 20 分钟；`ce264f2b` 已从分支顶端移除，**但对象仍在历史里** |
+
+**唯一可靠的补救是把密钥作废（轮换）**，然后写进 GitHub 仓库 Secrets，`config.json` 里的 `sendkey` 永远留空 `""`。要真正清掉历史对象只能删库重建（需 PAT 带 `delete_repo` 权限）或找 GitHub Support。
+
+> 教训：**推送前先 `GET contents/config.json` 拿远端真实版本**，不要在本地旧副本上改完直接覆盖。这两个 commit 都是这么来的。
 
 ### 12.2 本机推拉代码：拉取用 git，推送走 REST API
 
