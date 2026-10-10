@@ -29,12 +29,13 @@ TIER_SECTIONS = {title: tier for tier, title in TIER_TITLES.items()}
 
 #: Palette slots used by the stylesheet. Known labels keep their semantic
 #: colour; anything else falls back to the neutral slot.
-THEME_KEYS = ("air", "rs", "chem", "bgc")
+THEME_KEYS = ("air", "rs", "chem", "bgc", "gis")
 THEME_BY_TOPIC = {
     "空气污染": "air",
     "遥感": "rs",
     "大气化学": "chem",
     "生物地球化学": "bgc",
+    "城市地理信息系统": "gis",
 }
 
 #: Journal -> short badge label. Long names would wrap and wreck the cover.
@@ -144,13 +145,16 @@ def _parse_entry(block: str, match: re.Match) -> dict:
     if doi_match:
         doi = doi_match.group(1).strip()
 
-    # "**匹配**：空气污染（标题：pm10）" -> label + where the term hit
-    label, where = "", ""
-    hit = re.search(r"\*\*匹配\*\*：\s*(.+?)（(.+?)）", block)
-    if hit:
-        label, where = hit.group(1).strip(), hit.group(2).strip()
-    else:
-        label = _field(block, "匹配")
+    # "**匹配**：空气污染（标题：no2）、遥感（标题：tropomi） ｜ **得分**：27"
+    # One article routinely hits several keyword groups at once, and the report
+    # joins them with "、". It belongs to *every* one of them - reading only the
+    # first label silently drops about a quarter of the classification.
+    raw_match = _field(block, "匹配")
+    pairs = re.findall(r"([^、（）]+?)（(标题|摘要)：(.+?)）", raw_match)
+    topics = [label.strip() for label, _, _ in pairs if label.strip()]
+    if not topics and raw_match:
+        topics = [raw_match.strip()]
+    where = "、".join(f"{field}：{term}" for _, field, term in pairs)
 
     score_text = _field(block, "得分")
     score = int(score_text) if score_text.isdigit() else None
@@ -170,8 +174,12 @@ def _parse_entry(block: str, match: re.Match) -> dict:
         "journal": journal,
         "jabbr": JOURNAL_ABBR.get(journal, journal or "—"),
         "pubdate": _field(block, "日期"),
-        "topic": label or "其他",
-        "matchTerm": where.split("：")[-1].strip() if "：" in where else "",
+        # ``topic`` is the primary label (the first group that hit, i.e. config
+        # order) and drives the cover chip and the section grouping; ``topics``
+        # carries every match and drives filtering.
+        "topic": topics[0] if topics else "其他",
+        "topics": topics or ["其他"],
+        "matchTerm": pairs[0][2].strip() if pairs else "",
         "matchWhere": where,
         "score": score,
         "authors": authors,
@@ -180,21 +188,24 @@ def _parse_entry(block: str, match: re.Match) -> dict:
     }
 
 
-def collect(reports_dir: Path) -> tuple[list[dict], list[dict], list[str]]:
+def collect(reports_dir: Path, topic_labels: list[str] | None = None
+            ) -> tuple[list[dict], list[dict], list[str]]:
     """Parse every report into ``(articles, reports, topics)``.
 
     Reports are walked newest first and an article is kept only on its first
     sighting, so a paper that shows up in several days' reports appears once,
     with the freshest metadata.
 
-    ``topics`` comes out in the order the labels appear in the front matter,
-    which is ``config.json``'s keyword order - so reordering the keywords
-    reorders the page's sections without touching this module.
+    ``topic_labels`` is ``config.json``'s keyword order and wins outright. That
+    matters when a topic has just been added: no report on disk mentions it yet,
+    but it still has to get a tab, otherwise the category is invisible until the
+    next report happens to contain it. Labels seen only in the reports are
+    appended afterwards, so a report from an older config still renders.
     """
     paths = sorted(reports_dir.glob("*.md"), reverse=True)
     reports: list[dict] = []
     articles: list[dict] = []
-    topics: list[str] = []
+    topics: list[str] = [t for t in (topic_labels or []) if t]
     seen: set[str] = set()
 
     for path in paths:
@@ -204,20 +215,18 @@ def collect(reports_dir: Path) -> tuple[list[dict], list[dict], list[str]]:
             "generated": meta.get("generated", ""),
             "count": len(entries),
         })
-        # Front matter carries the configured keyword order, which is a much
-        # better section order than "whichever label showed up first today".
         for label in meta.get("topics", []):
             if label and label not in topics:
                 topics.append(label)
         for entry in entries:
-            topic = entry["topic"]
-            if topic != "其他" and topic not in topics:
-                topics.append(topic)
             key = (entry["doi"] or entry["title"]).lower()
             if key in seen:
                 continue
             seen.add(key)
-            entry["tkey"] = THEME_BY_TOPIC.get(topic, "other")
+            for label in entry["topics"]:
+                if label != "其他" and label not in topics:
+                    topics.append(label)
+            entry["tkey"] = THEME_BY_TOPIC.get(entry["topic"], "other")
             articles.append(entry)
 
     # Sort here as well as in the browser: the ids below are array positions,
@@ -239,6 +248,7 @@ def build_html(articles: list[dict], reports: list[dict], topics: list[str],
             "reports": reports,
             "topics": topics,
             "themeKeys": list(THEME_KEYS),
+            "topicTheme": THEME_BY_TOPIC,
             "generated": generated_at,
         },
         ensure_ascii=False,
@@ -257,12 +267,12 @@ def build_html(articles: list[dict], reports: list[dict], topics: list[str],
 
 
 def write_cards(reports_dir: Path, out_path: Path, *, project: str = "文献日报",
-                log=None) -> Path | None:
+                topic_labels: list[str] | None = None, log=None) -> Path | None:
     """Build the page from ``reports_dir`` into ``out_path``.
 
     Returns the written path, or ``None`` when there is nothing to publish.
     """
-    articles, reports, topics = collect(Path(reports_dir))
+    articles, reports, topics = collect(Path(reports_dir), topic_labels)
     if not articles:
         if log:
             log.info("cards page skipped: no reports found in %s", reports_dir)
@@ -287,11 +297,24 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--reports", default="reports", help="directory holding the Markdown reports")
     parser.add_argument("--out", default="docs/index.html", help="output HTML path")
     parser.add_argument("--project", default="文献日报", help="project name shown in the header")
+    parser.add_argument("--config", default="config.json",
+                        help="config.json, read only to get the keyword label order")
     args = parser.parse_args(argv)
 
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8", errors="replace")
-    written = write_cards(Path(args.reports), Path(args.out), project=args.project)
+
+    topic_labels: list[str] = []
+    cfg_path = Path(args.config)
+    if cfg_path.is_file():
+        try:
+            cfg = json.loads(cfg_path.read_text(encoding="utf-8"))
+            topic_labels = [k.get("label", "") for k in cfg.get("keywords", [])]
+        except (OSError, json.JSONDecodeError) as exc:
+            print(f"警告：{cfg_path} 读取失败（{exc}），改用日报里的标签顺序。")
+
+    written = write_cards(Path(args.reports), Path(args.out),
+                          project=args.project, topic_labels=topic_labels)
     if written is None:
         print(f"没有在 {args.reports} 找到任何日报，未生成页面。")
         return 1
@@ -315,6 +338,7 @@ _TEMPLATE = r"""<!DOCTYPE html>
   --rs-a:#63b3ff;  --rs-b:#3a5ce0;
   --chem-a:#c3a0ff; --chem-b:#7048e8;
   --bgc-a:#6ee0a8;  --bgc-b:#0b9e73;
+  --gis-a:#5ed6c4;  --gis-b:#0d8f9e;
   --other-a:#c9ccd4; --other-b:#8b90a0;
 }
 *{box-sizing:border-box}
@@ -378,7 +402,7 @@ svg.ic{display:block;flex:none}
 .grouphead h2 svg{width:18px;height:18px;stroke-width:1.9}
 .grouphead .bar{flex:1;height:1px;background:linear-gradient(90deg,var(--line),transparent)}
 .grouphead .gn{font-size:12.5px;color:var(--ink3);font-weight:600}
-.g-air h2{color:#e8455f} .g-rs h2{color:#3a5ce0} .g-chem h2{color:#7048e8} .g-bgc h2{color:#0b9e73}
+.g-air h2{color:#e8455f} .g-rs h2{color:#3a5ce0} .g-chem h2{color:#7048e8} .g-bgc h2{color:#0b9e73} .g-gis h2{color:#0d8f9e}
 
 .wall{max-width:1560px;margin:0 auto;padding:14px 22px 0;columns:4;column-gap:16px}
 @media(max-width:1380px){.wall{columns:3}}
@@ -407,6 +431,7 @@ svg.ic{display:block;flex:none}
 .t-rs  .cover{background:linear-gradient(135deg,var(--rs-a),var(--rs-b))}
 .t-chem .cover{background:linear-gradient(135deg,var(--chem-a),var(--chem-b))}
 .t-bgc .cover{background:linear-gradient(135deg,var(--bgc-a),var(--bgc-b))}
+.t-gis .cover{background:linear-gradient(135deg,var(--gis-a),var(--gis-b))}
 .t-other .cover{background:linear-gradient(135deg,var(--other-a),var(--other-b))}
 .cover .icon{position:absolute;right:12px;top:50%;transform:translateY(-50%);color:#fff;opacity:.28;width:76px;height:76px;z-index:1}
 .cover .icon svg{width:100%;height:100%;stroke-width:1.25}
@@ -440,6 +465,7 @@ svg.ic{display:block;flex:none}
 .tag.worth_reading{background:#fff4e3;color:#c67a00}
 .tag.other{background:#f0f1f4;color:#7c8090}
 .tag.match{background:#eef4ff;color:#3a5ce0}
+.tag.cross{background:#e6f7f5;color:#0d8f9e}
 
 .foot{display:flex;align-items:center;gap:8px;padding:9px 14px;border-top:1px solid var(--line);background:#fcfcfd}
 .av{width:22px;height:22px;border-radius:50%;flex:none;color:#fff;display:grid;place-items:center;font-size:11px;font-weight:800}
@@ -447,6 +473,7 @@ svg.ic{display:block;flex:none}
 .t-rs .av{background:linear-gradient(135deg,var(--rs-a),var(--rs-b))}
 .t-chem .av{background:linear-gradient(135deg,var(--chem-a),var(--chem-b))}
 .t-bgc .av{background:linear-gradient(135deg,var(--bgc-a),var(--bgc-b))}
+.t-gis .av{background:linear-gradient(135deg,var(--gis-a),var(--gis-b))}
 .t-other .av{background:linear-gradient(135deg,var(--other-a),var(--other-b))}
 .au{font-size:12px;color:var(--ink2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;min-width:0}
 .dt{font-size:11.5px;color:var(--ink3);white-space:nowrap;font-variant-numeric:tabular-nums}
@@ -537,6 +564,7 @@ svg.ic{display:block;flex:none}
     rs:    '<circle cx="12" cy="12" r="8.6"/><ellipse cx="12" cy="12" rx="3.7" ry="8.6"/><path d="M3.4 12h17.2"/>',
     chem:  '<path d="M9.5 2.8h5"/><path d="M10.6 2.8v5.8L6.3 16.9a2 2 0 0 0 1.8 3h7.8a2 2 0 0 0 1.8-3L15.4 8.6V2.8"/><path d="M7.9 13.6h8.2"/>',
     bgc:   '<path d="M20.6 3.4C20.6 12 15.7 16.1 9.5 16.1H4.1C4.1 7.5 9 3.4 15.2 3.4h5.4z"/><path d="M4.1 20.6c2.2-5.8 6.1-9.1 11.3-10.5"/>',
+    gis:   '<path d="M9 3.4 3.5 5.8v14.8L9 18.2l6 2.4 5.5-2.4V3.4L15 5.8 9 3.4z"/><path d="M9 3.4v14.8"/><path d="M15 5.8v14.8"/>',
     other: '<path d="M14 3H7.6A2 2 0 0 0 5.6 5v14a2 2 0 0 0 2 2h9a2 2 0 0 0 2-2V7.6L14 3z"/><path d="M14 3v4.6h4.6"/>',
     search:'<circle cx="11" cy="11" r="7"/><path d="M20.2 20.2l-4.3-4.3"/>'
   };
@@ -547,13 +575,21 @@ svg.ic{display:block;flex:none}
 
   var state = { topic:'all', tier:'all', sort:'score', q:'' };
 
+  /* An article can hit several keyword groups at once. a.topics holds every
+     match (used for filtering); a.topic is the primary one (used for the cover
+     chip and the section grouping, so nothing is listed twice). */
+  var THEME = D.topicTheme || {};
+  function topicsOf(a){ return a.topics && a.topics.length ? a.topics : [a.topic]; }
+
   var tabs = document.getElementById('tabs');
   var C = {all:A.length};
   TOPICS.forEach(function(t){ C[t]=0; });
-  A.forEach(function(a){ if(C[a.topic]!==undefined) C[a.topic]++; });
+  A.forEach(function(a){
+    topicsOf(a).forEach(function(t){ if(C[t]!==undefined) C[t]++; });
+  });
 
   var tabDefs = [{k:'all',label:'全部',icon:'all'}].concat(
-    TOPICS.map(function(t){ return {k:t,label:t,icon:(A.filter(function(a){return a.topic===t;})[0]||{}).tkey||'other'}; })
+    TOPICS.map(function(t){ return {k:t,label:t,icon:THEME[t]||'other'}; })
   );
   tabDefs.forEach(function(d){
     var b = document.createElement('button');
@@ -606,7 +642,7 @@ svg.ic{display:block;flex:none}
   function select(){
     var q = state.q;
     var out = A.filter(function(a){
-      if(state.topic!=='all' && a.topic!==state.topic) return false;
+      if(state.topic!=='all' && topicsOf(a).indexOf(state.topic)<0) return false;
       if(state.tier!=='all' && a.tier!==state.tier) return false;
       if(q){
         var hay = (a.title+' '+a.abstract+' '+a.authors.join(' ')+' '+a.journal+' '+a.doi).toLowerCase();
@@ -629,6 +665,9 @@ svg.ic{display:block;flex:none}
              + '<span class="tag">'+esc(a.jabbr)+'</span>';
     if(a.score!=null) tags += '<span class="tag">得分 '+a.score+'</span>';
     if(a.matchTerm) tags += '<span class="tag match" title="命中位置：'+esc(a.matchWhere)+'">命中 '+esc(a.matchTerm)+'</span>';
+    topicsOf(a).filter(function(t){ return t!==a.topic; }).slice(0,2).forEach(function(t){
+      tags += '<span class="tag cross">也属 '+esc(t)+'</span>';
+    });
 
     var ab = a.abstract
       ? '<p class="excerpt">'+esc(trunc(a.abstract,200))+'</p>'
@@ -677,9 +716,11 @@ svg.ic{display:block;flex:none}
       TOPICS.forEach(function(t){
         var g = list.filter(function(a){ return a.topic===t; });
         if(!g.length) return;
-        var key = g[0].tkey;
+        var key = THEME[t] || 'other';
+        var related = list.filter(function(a){ return topicsOf(a).indexOf(t)>=0; }).length - g.length;
         html += '<div class="grouphead'+(key!=='other'?' g-'+key:'')+'"><h2>'+svg(key)+t+'</h2>'
-              + '<span class="gn">'+g.length+' 篇</span><div class="bar"></div></div>'
+              + '<span class="gn">'+g.length+' 篇'
+              + (related>0 ? ' · 另有 '+related+' 篇跨学科命中' : '')+'</span><div class="bar"></div></div>'
               + '<div class="wall">'+g.map(cardHTML).join('')+'</div>';
       });
       var rest = list.filter(function(a){ return TOPICS.indexOf(a.topic)<0; });
@@ -701,7 +742,7 @@ svg.ic{display:block;flex:none}
     modal.innerHTML =
       '<div class="mhead" style="background:linear-gradient(135deg,var(--'+a.tkey+'-a),var(--'+a.tkey+'-b))">'
       + '<button class="mclose" id="mclose" type="button">✕</button>'
-      + '<div class="mj">'+esc(a.topic)+' · '+esc(a.journal)+'</div>'
+      + '<div class="mj">'+esc(topicsOf(a).join(' / '))+' · '+esc(a.journal)+'</div>'
       + '<h3>'+esc(a.title)+'</h3>'
       + '<div class="mmeta">'
       +   '<span>'+esc(a.tierLabel)+'</span>'

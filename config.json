@@ -107,6 +107,61 @@
         "nitrous oxide",
         "n2o"
       ]
+    },
+    {
+      "label": "城市地理信息系统",
+      "weight": 3,
+      "terms": [
+        "gis",
+        "geographic information system",
+        "geographic information systems",
+        "geographic information science",
+        "geospatial",
+        "geospatial data",
+        "spatial analysis",
+        "spatial data infrastructure",
+        "urban morphology",
+        "urban form",
+        "urban structure",
+        "urban fabric",
+        "land use",
+        "land cover",
+        "land-use",
+        "land use and land cover",
+        "lulc",
+        "urban expansion",
+        "urban growth",
+        "urban sprawl",
+        "urbanization",
+        "urbanisation",
+        "impervious surface",
+        "built-up area",
+        "urban extent",
+        "building height",
+        "building footprint",
+        "building footprints",
+        "building density",
+        "building morphology",
+        "street view",
+        "street network",
+        "street canyon",
+        "openstreetmap",
+        "points of interest",
+        "urban functional zone",
+        "urban land",
+        "urban planning",
+        "urban design",
+        "urban development",
+        "3d city model",
+        "city model",
+        "citygml",
+        "digital twin",
+        "local climate zone",
+        "local climate zones",
+        "urban agglomeration",
+        "geocoding",
+        "spatial autocorrelation"
+      ]
     }
   ],
   "exclude_terms": [
@@ -147,7 +202,16 @@
     { "name": "Geophysical Research Letters", "issn": "1944-8007", "rss": "https://agupubs.onlinelibrary.wiley.com/feed/19448007/most-recent", "enabled": true },
     { "name": "Journal of Geophysical Research: Atmospheres", "issn": "2169-8996", "rss": "https://agupubs.onlinelibrary.wiley.com/feed/21698996/most-recent", "enabled": true },
     { "name": "Atmospheric Environment", "issn": "1352-2310", "rss": "https://rss.sciencedirect.com/publication/science/13522310", "enabled": true },
-    { "name": "Remote Sensing of Environment", "issn": "0034-4257", "rss": "https://rss.sciencedirect.com/publication/science/00344257", "enabled": true }
+    { "name": "Remote Sensing of Environment", "issn": "0034-4257", "rss": "https://rss.sciencedirect.com/publication/science/00344257", "enabled": true },
+
+    { "name": "Computers, Environment and Urban Systems", "issn": "0198-9715", "rss": "https://rss.sciencedirect.com/publication/science/01989715", "enabled": true },
+    { "name": "Landscape and Urban Planning", "issn": "0169-2046", "rss": "https://rss.sciencedirect.com/publication/science/01692046", "enabled": true },
+    { "name": "Urban Climate", "issn": "2212-0955", "rss": "https://rss.sciencedirect.com/publication/science/22120955", "enabled": true },
+    { "name": "Cities", "issn": "0264-2751", "rss": "https://rss.sciencedirect.com/publication/science/02642751", "enabled": true },
+    { "name": "ISPRS Journal of Photogrammetry and Remote Sensing", "issn": "0924-2716", "rss": "https://rss.sciencedirect.com/publication/science/09242716", "enabled": true },
+    { "name": "International Journal of Geographical Information Science", "issn": "1365-8816", "rss": "", "enabled": true },
+    { "name": "Transactions in GIS", "issn": "1361-1682", "rss": "", "enabled": true },
+    { "name": "Environment and Planning B: Urban Analytics and City Science", "issn": "2399-8083", "rss": "", "enabled": true }
   ],
   "push": {
     "enabled": true,
@@ -155,7 +219,7 @@
     "max_items": 6,
     "max_chars": 1800,
     "channels": {
-      "serverchan": { "enabled": true, "sendkey": "SCT432654TVot3QK7k5WKuHWToKGbZzTZs" },
+      "serverchan": { "enabled": true, "sendkey": "" },
       "pushplus": { "enabled": true, "token": "" },
       "bark": { "enabled": false, "key": "", "server": "https://api.day.app", "sound": "bird" }
     }

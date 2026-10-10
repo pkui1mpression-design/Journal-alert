@@ -152,6 +152,9 @@ def build_cards_page(cfg: dict, log) -> int:
         Path(cfg["reports_dir"]),
         cards_output_path(cfg),
         project=cfg.get("project", {}).get("name", "文献日报"),
+        # Keyword order drives the page's section order, and a freshly added
+        # topic needs a tab before any report mentions it.
+        topic_labels=[k.get("label", "") for k in cfg.get("keywords", [])],
         log=log,
     )
     if written is None:
