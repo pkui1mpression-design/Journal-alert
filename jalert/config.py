@@ -62,6 +62,10 @@ DEFAULTS: dict = {
         # YAML front matter on top of each report, so Obsidian properties and
         # Dataview can query it. Skip it if you only ever read the raw Markdown.
         "frontmatter": True,
+        # Static card-wall page rebuilt from every report in ``dir`` after each
+        # run. Purely additive: if it fails, the run still succeeds.
+        "cards": True,
+        "cards_html": "docs/index.html",
     },
     "keywords": [],
     "exclude_terms": [],

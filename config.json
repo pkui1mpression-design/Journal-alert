@@ -20,11 +20,10 @@
   "output": {
     "dir": "reports",
     "keep_days": 365,
-    "max_entries": 10,
     "open_after_run": false,
     "write_json_snapshot": true,
-    "source_status": "summary",
-    "frontmatter": true
+    "cards": true,
+    "cards_html": "docs/index.html"
   },
   "keywords": [
     {
@@ -133,102 +132,22 @@
     "min_score": 3
   },
   "journals": [
-    {
-      "name": "Nature",
-      "issn": "0028-0836",
-      "rss": "https://www.nature.com/nature.rss",
-      "enabled": true
-    },
-    {
-      "name": "Science",
-      "issn": "0036-8075",
-      "rss": "https://www.science.org/action/showFeed?type=etoc&feed=rss&jc=science",
-      "enabled": true
-    },
-    {
-      "name": "Nature Climate Change",
-      "issn": "1758-6798",
-      "rss": "https://www.nature.com/nclimate.rss",
-      "enabled": true
-    },
-    {
-      "name": "Nature Geoscience",
-      "issn": "1752-0908",
-      "rss": "https://www.nature.com/ngeo.rss",
-      "enabled": true
-    },
-    {
-      "name": "Nature Sustainability",
-      "issn": "2398-9629",
-      "rss": "https://www.nature.com/natsustain.rss",
-      "enabled": true
-    },
-    {
-      "name": "Nature Cities",
-      "issn": "2731-9997",
-      "rss": "https://www.nature.com/natcities.rss",
-      "enabled": true
-    },
-    {
-      "name": "Nature Communications",
-      "issn": "2041-1723",
-      "rss": "https://www.nature.com/ncomms.rss",
-      "enabled": true
-    },
-    {
-      "name": "Science Advances",
-      "issn": "2375-2548",
-      "rss": "https://www.science.org/action/showFeed?type=etoc&feed=rss&jc=sciadv",
-      "enabled": true
-    },
-    {
-      "name": "Earth's Future",
-      "issn": "2328-4277",
-      "rss": "https://agupubs.onlinelibrary.wiley.com/feed/23284277/most-recent",
-      "enabled": true
-    },
-    {
-      "name": "Atmospheric Chemistry and Physics",
-      "issn": "1680-7324",
-      "rss": "https://acp.copernicus.org/xml/rss2_0.xml",
-      "enabled": true
-    },
-    {
-      "name": "Environmental Science & Technology",
-      "issn": "0013-936X",
-      "rss": "",
-      "enabled": true
-    },
-    {
-      "name": "Environmental Research Letters",
-      "issn": "1748-9326",
-      "rss": "https://iopscience.iop.org/journal/rss/1748-9326",
-      "enabled": true
-    },
-    {
-      "name": "Geophysical Research Letters",
-      "issn": "1944-8007",
-      "rss": "https://agupubs.onlinelibrary.wiley.com/feed/19448007/most-recent",
-      "enabled": true
-    },
-    {
-      "name": "Journal of Geophysical Research: Atmospheres",
-      "issn": "2169-8996",
-      "rss": "https://agupubs.onlinelibrary.wiley.com/feed/21698996/most-recent",
-      "enabled": true
-    },
-    {
-      "name": "Atmospheric Environment",
-      "issn": "1352-2310",
-      "rss": "https://rss.sciencedirect.com/publication/science/13522310",
-      "enabled": true
-    },
-    {
-      "name": "Remote Sensing of Environment",
-      "issn": "0034-4257",
-      "rss": "https://rss.sciencedirect.com/publication/science/00344257",
-      "enabled": true
-    }
+    { "name": "Nature", "issn": "0028-0836", "rss": "https://www.nature.com/nature.rss", "enabled": true },
+    { "name": "Science", "issn": "0036-8075", "rss": "https://www.science.org/action/showFeed?type=etoc&feed=rss&jc=science", "enabled": true },
+    { "name": "Nature Climate Change", "issn": "1758-6798", "rss": "https://www.nature.com/nclimate.rss", "enabled": true },
+    { "name": "Nature Geoscience", "issn": "1752-0908", "rss": "https://www.nature.com/ngeo.rss", "enabled": true },
+    { "name": "Nature Sustainability", "issn": "2398-9629", "rss": "https://www.nature.com/natsustain.rss", "enabled": true },
+    { "name": "Nature Cities", "issn": "2731-9997", "rss": "https://www.nature.com/natcities.rss", "enabled": true },
+    { "name": "Nature Communications", "issn": "2041-1723", "rss": "https://www.nature.com/ncomms.rss", "enabled": true },
+    { "name": "Science Advances", "issn": "2375-2548", "rss": "https://www.science.org/action/showFeed?type=etoc&feed=rss&jc=sciadv", "enabled": true },
+    { "name": "Earth's Future", "issn": "2328-4277", "rss": "https://agupubs.onlinelibrary.wiley.com/feed/23284277/most-recent", "enabled": true },
+    { "name": "Atmospheric Chemistry and Physics", "issn": "1680-7324", "rss": "https://acp.copernicus.org/xml/rss2_0.xml", "enabled": true },
+    { "name": "Environmental Science & Technology", "issn": "0013-936X", "rss": "", "enabled": true },
+    { "name": "Environmental Research Letters", "issn": "1748-9326", "rss": "https://iopscience.iop.org/journal/rss/1748-9326", "enabled": true },
+    { "name": "Geophysical Research Letters", "issn": "1944-8007", "rss": "https://agupubs.onlinelibrary.wiley.com/feed/19448007/most-recent", "enabled": true },
+    { "name": "Journal of Geophysical Research: Atmospheres", "issn": "2169-8996", "rss": "https://agupubs.onlinelibrary.wiley.com/feed/21698996/most-recent", "enabled": true },
+    { "name": "Atmospheric Environment", "issn": "1352-2310", "rss": "https://rss.sciencedirect.com/publication/science/13522310", "enabled": true },
+    { "name": "Remote Sensing of Environment", "issn": "0034-4257", "rss": "https://rss.sciencedirect.com/publication/science/00344257", "enabled": true }
   ],
   "push": {
     "enabled": true,
@@ -236,20 +155,9 @@
     "max_items": 6,
     "max_chars": 1800,
     "channels": {
-      "serverchan": {
-        "enabled": true,
-        "sendkey": ""
-      },
-      "pushplus": {
-        "enabled": true,
-        "token": ""
-      },
-      "bark": {
-        "enabled": false,
-        "key": "",
-        "server": "https://api.day.app",
-        "sound": "bird"
-      }
+      "serverchan": { "enabled": true, "sendkey": "SCT432654TVot3QK7k5WKuHWToKGbZzTZs" },
+      "pushplus": { "enabled": true, "token": "" },
+      "bark": { "enabled": false, "key": "", "server": "https://api.day.app", "sound": "bird" }
     }
   },
   "log": {

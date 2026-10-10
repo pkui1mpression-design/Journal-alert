@@ -23,6 +23,7 @@ from types import SimpleNamespace
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from jalert import push as push_module  # noqa: E402
+from jalert.cards import write_cards  # noqa: E402
 from jalert.config import describe_secret_sources, load_config  # noqa: E402
 from jalert.fetch import collect_items, http_request  # noqa: E402
 from jalert.report import build_digest, build_markdown  # noqa: E402
@@ -131,6 +132,32 @@ def prune_reports(reports_dir: Path, keep_days: int, log) -> None:
                 removed += 1
     if removed:
         log.info("pruned %d report(s)/snapshot(s) older than %d days", removed, keep_days)
+
+
+def cards_output_path(cfg: dict) -> Path:
+    """Where the card-wall page goes; relative paths resolve against the project root."""
+    raw = str(cfg.get("output", {}).get("cards_html", "docs/index.html") or "docs/index.html")
+    path = Path(raw)
+    return path if path.is_absolute() else Path(cfg["_root"]) / path
+
+
+def build_cards_page(cfg: dict, log) -> int:
+    """Rebuild the static card-wall page from every report on disk.
+
+    Kept separate from the fetch pipeline on purpose: it only reads ``reports/``,
+    so it can be run on its own (``--cards``) to refresh the page without
+    touching the network, the ledger or the push channels.
+    """
+    written = write_cards(
+        Path(cfg["reports_dir"]),
+        cards_output_path(cfg),
+        project=cfg.get("project", {}).get("name", "文献日报"),
+        log=log,
+    )
+    if written is None:
+        log.warning("cards page not written: no reports found in %s", cfg["reports_dir"])
+        return 1
+    return 0
 
 
 def cap_entries(entries: list[dict], cfg: dict, log) -> tuple[list[dict], int]:
@@ -370,6 +397,9 @@ def run(args: argparse.Namespace) -> int:
     if args.rerender:
         return rerender(args, cfg, log, day, tiers, day_snapshot, report_path)
 
+    if args.cards:
+        return build_cards_page(cfg, log)
+
     window_days = effective_window_days(cfg, log, explicit=args.days)
     cfg["window"]["days"] = window_days
     items, statuses = collect_items(cfg, log, since_days=window_days)
@@ -494,6 +524,14 @@ def run(args: argparse.Namespace) -> int:
                 note=f"{len(failures)} source failure(s)",
             )
             prune_reports(reports_dir, int(cfg.get("output", {}).get("keep_days", 365)), log)
+            # Rebuilt after pruning so the page matches what the archive holds.
+            # Wrapped because the report is the deliverable and the page is a
+            # convenience: an HTML bug must never fail the daily run.
+            if cfg.get("output", {}).get("cards", True):
+                try:
+                    build_cards_page(cfg, log)
+                except Exception as exc:  # noqa: BLE001 - deliberately broad
+                    log.warning("cards page build failed (report unaffected): %s", exc)
 
     if not args.dry_run and cfg.get("output", {}).get("open_after_run") and report_path.is_file():
         if hasattr(os, "startfile"):  # Windows only; a no-op on Linux/macOS/CI
@@ -510,6 +548,11 @@ def main(argv: list[str] | None = None) -> int:
         "--rerender",
         action="store_true",
         help="rebuild today's report from the saved snapshot without fetching",
+    )
+    parser.add_argument(
+        "--cards",
+        action="store_true",
+        help="rebuild the static card-wall page from reports/ and exit",
     )
     parser.add_argument(
         "--doctor",
