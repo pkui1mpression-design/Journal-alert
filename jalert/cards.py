@@ -29,12 +29,14 @@ TIER_SECTIONS = {title: tier for tier, title in TIER_TITLES.items()}
 
 #: Palette slots used by the stylesheet. Known labels keep their semantic
 #: colour; anything else falls back to the neutral slot.
-THEME_KEYS = ("air", "rs", "chem", "bgc", "gis")
+THEME_KEYS = ("air", "rs", "chem", "bgc", "ghg", "wx", "gis")
 THEME_BY_TOPIC = {
     "空气污染": "air",
     "遥感": "rs",
     "大气化学": "chem",
     "生物地球化学": "bgc",
+    "温室气体": "ghg",
+    "极端天气": "wx",
     "城市地理信息系统": "gis",
 }
 
@@ -341,6 +343,8 @@ _TEMPLATE = r"""<!DOCTYPE html>
   --rs-a:#63b3ff;  --rs-b:#3a5ce0;
   --chem-a:#c3a0ff; --chem-b:#7048e8;
   --bgc-a:#6ee0a8;  --bgc-b:#0b9e73;
+  --ghg-a:#f7c95c;  --ghg-b:#b87300;
+  --wx-a:#ff8494;   --wx-b:#c1121f;
   --gis-a:#5ed6c4;  --gis-b:#0d8f9e;
   --other-a:#c9ccd4; --other-b:#8b90a0;
 }
@@ -405,7 +409,7 @@ svg.ic{display:block;flex:none}
 .grouphead h2 svg{width:18px;height:18px;stroke-width:1.9}
 .grouphead .bar{flex:1;height:1px;background:linear-gradient(90deg,var(--line),transparent)}
 .grouphead .gn{font-size:12.5px;color:var(--ink3);font-weight:600}
-.g-air h2{color:#e8455f} .g-rs h2{color:#3a5ce0} .g-chem h2{color:#7048e8} .g-bgc h2{color:#0b9e73} .g-gis h2{color:#0d8f9e}
+.g-air h2{color:#e8455f} .g-rs h2{color:#3a5ce0} .g-chem h2{color:#7048e8} .g-bgc h2{color:#0b9e73} .g-ghg h2{color:#b87300} .g-wx h2{color:#c1121f} .g-gis h2{color:#0d8f9e}
 
 .wall{max-width:1560px;margin:0 auto;padding:14px 22px 0;columns:4;column-gap:16px}
 @media(max-width:1380px){.wall{columns:3}}
@@ -434,6 +438,8 @@ svg.ic{display:block;flex:none}
 .t-rs  .cover{background:linear-gradient(135deg,var(--rs-a),var(--rs-b))}
 .t-chem .cover{background:linear-gradient(135deg,var(--chem-a),var(--chem-b))}
 .t-bgc .cover{background:linear-gradient(135deg,var(--bgc-a),var(--bgc-b))}
+.t-ghg .cover{background:linear-gradient(135deg,var(--ghg-a),var(--ghg-b))}
+.t-wx .cover{background:linear-gradient(135deg,var(--wx-a),var(--wx-b))}
 .t-gis .cover{background:linear-gradient(135deg,var(--gis-a),var(--gis-b))}
 .t-other .cover{background:linear-gradient(135deg,var(--other-a),var(--other-b))}
 .cover .icon{position:absolute;right:12px;top:50%;transform:translateY(-50%);color:#fff;opacity:.28;width:76px;height:76px;z-index:1}
@@ -476,6 +482,8 @@ svg.ic{display:block;flex:none}
 .t-rs .av{background:linear-gradient(135deg,var(--rs-a),var(--rs-b))}
 .t-chem .av{background:linear-gradient(135deg,var(--chem-a),var(--chem-b))}
 .t-bgc .av{background:linear-gradient(135deg,var(--bgc-a),var(--bgc-b))}
+.t-ghg .av{background:linear-gradient(135deg,var(--ghg-a),var(--ghg-b))}
+.t-wx .av{background:linear-gradient(135deg,var(--wx-a),var(--wx-b))}
 .t-gis .av{background:linear-gradient(135deg,var(--gis-a),var(--gis-b))}
 .t-other .av{background:linear-gradient(135deg,var(--other-a),var(--other-b))}
 .au{font-size:12px;color:var(--ink2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;min-width:0}
@@ -567,6 +575,8 @@ svg.ic{display:block;flex:none}
     rs:    '<circle cx="12" cy="12" r="8.6"/><ellipse cx="12" cy="12" rx="3.7" ry="8.6"/><path d="M3.4 12h17.2"/>',
     chem:  '<path d="M9.5 2.8h5"/><path d="M10.6 2.8v5.8L6.3 16.9a2 2 0 0 0 1.8 3h7.8a2 2 0 0 0 1.8-3L15.4 8.6V2.8"/><path d="M7.9 13.6h8.2"/>',
     bgc:   '<path d="M20.6 3.4C20.6 12 15.7 16.1 9.5 16.1H4.1C4.1 7.5 9 3.4 15.2 3.4h5.4z"/><path d="M4.1 20.6c2.2-5.8 6.1-9.1 11.3-10.5"/>',
+    ghg:   '<path d="M4.6 20v-6.2"/><path d="M2.2 15.6 4.6 13.2l2.4 2.4"/><path d="M12 20V9.4"/><path d="M9.6 11.8 12 9.4l2.4 2.4"/><path d="M19.4 20v-3.4"/><path d="M17 18.4l2.4-2.4 2.4 2.4"/>',
+    wx:    '<path d="M13.2 2.6 4.4 13.8h6.2l-1 7.6 8.8-11.2h-6.2l1-7.6z"/>',
     gis:   '<path d="M9 3.4 3.5 5.8v14.8L9 18.2l6 2.4 5.5-2.4V3.4L15 5.8 9 3.4z"/><path d="M9 3.4v14.8"/><path d="M15 5.8v14.8"/>',
     other: '<path d="M14 3H7.6A2 2 0 0 0 5.6 5v14a2 2 0 0 0 2 2h9a2 2 0 0 0 2-2V7.6L14 3z"/><path d="M14 3v4.6h4.6"/>',
     search:'<circle cx="11" cy="11" r="7"/><path d="M20.2 20.2l-4.3-4.3"/>'
